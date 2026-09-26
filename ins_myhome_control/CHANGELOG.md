@@ -1,0 +1,1 @@
+# Changelog\n\n## 0.2.0\n- Add Home Assistant ingress GUI\n- Add room cards for all configured rooms with temperature/humidity\n- Calculate dew point and absolute humidity per room\n- Add room-climate mould screening\n- Use measured surface humidity for bedroom north wall\n
