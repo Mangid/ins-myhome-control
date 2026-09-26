@@ -3,7 +3,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SUPERVISOR="http://supervisor/core/api"
 INVENTORY="/app/house_inventory.json"
-LATEST={"updated":None,"rooms":[],"energy":{}}
+LATEST={"updated":None,"rooms":[],"energy":{},"bedroom_control":{}}\nTIMERS={}\nFLEX_READY=False
 
 def token(): return os.environ.get("SUPERVISOR_TOKEN","")
 def ha_state(eid):
@@ -55,7 +55,7 @@ def collect_rooms():
     return sorted(out,key=lambda x:(-order.get(x["risk"],0),x["floor"],x["name"]))
 
 def loop():
-    print("INS MyHome Control 0.2.0 starting | mode=SHADOW | gui=8099",flush=True)
+    print("INS MyHome Control 0.2.1 starting | mode=SHADOW | gui=8099",flush=True)
     while True:
         try:
             rooms=collect_rooms()
@@ -71,8 +71,8 @@ def loop():
 
 HTML='''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>INS MyHome Control</title>
 <style>body{font-family:system-ui;margin:0;background:#10151c;color:#edf3f8}.wrap{max-width:1100px;margin:auto;padding:18px}h1{margin:0 0 4px}.sub{color:#9fb0c0;margin-bottom:16px}.top,.grid{display:grid;gap:12px}.top{grid-template-columns:repeat(3,1fr);margin-bottom:18px}.card,.stat{background:#18212b;border:1px solid #283746;border-radius:14px;padding:14px}.grid{grid-template-columns:repeat(auto-fit,minmax(235px,1fr))}.name{font-size:18px;font-weight:700}.floor,.muted{color:#9fb0c0;font-size:13px}.vals{display:flex;gap:14px;margin:10px 0}.big{font-size:22px}.badge{display:inline-block;padding:4px 9px;border-radius:999px;background:#273544}.NIEDRIG{background:#173d2b}.ERHOEHT{background:#594916}.HOCH{background:#64391b}.KRITISCH{background:#6b2228}@media(max-width:650px){.top{grid-template-columns:1fr}}</style></head>
-<body><div class="wrap"><h1>INS MyHome Control</h1><div class="sub">Raumklima & Schimmelübersicht · Shadow</div><div class="top" id="energy"></div><div class="grid" id="rooms"></div></div>
-<script>async function load(){let d=await fetch('api/status').then(r=>r.json());document.getElementById('energy').innerHTML='<div class="stat"><div class="muted">Flexibler PV-Pool</div><div class="big">'+d.energy.flexible+' W</div></div><div class="stat"><div class="muted">AC-THOR</div><div class="big">'+d.energy.ac_thor+' W</div></div><div class="stat"><div class="muted">Netzexport</div><div class="big">'+d.energy.grid_export+' W</div></div>';document.getElementById('rooms').innerHTML=d.rooms.map(r=>'<div class="card"><div class="floor">'+r.floor+'</div><div class="name">'+r.name+'</div><div class="vals"><div><span class="big">'+r.temperature+'°C</span><div class="muted">Raum</div></div><div><span class="big">'+r.humidity+'%</span><div class="muted">rF</div></div></div><div>Taupunkt '+r.dew_point+'°C · abs. Feuchte '+r.absolute_humidity+' g/m³</div>'+(r.surface_humidity!==undefined?'<div>kritische Oberfläche: '+r.wall_temperature+'°C / '+r.surface_humidity+'%</div>':'')+'<p><span class="badge '+r.risk+'">'+r.risk+'</span> <span class="muted">'+r.method+'</span></p></div>').join('');}load();setInterval(load,30000);</script></body></html>'''
+<body><div class="wrap"><h1>INS MyHome Control</h1><div class="sub">Raumklima & Schimmelübersicht · Shadow</div><div class="top" id="energy"></div><div id="bedctl"></div><div class="grid" id="rooms"></div></div>
+<script>async function load(){let d=await fetch('api/status').then(r=>r.json());document.getElementById('energy').innerHTML='<div class="stat"><div class="muted">Flexibler PV-Pool</div><div class="big">'+d.energy.flexible+' W</div></div><div class="stat"><div class="muted">AC-THOR</div><div class="big">'+d.energy.ac_thor+' W</div></div><div class="stat"><div class="muted">Netzexport</div><div class="big">'+d.energy.grid_export+' W</div></div>';let c=d.bedroom_control||{};document.getElementById('bedctl').innerHTML=c.recommendation?'<div class=\"card\" style=\"margin-bottom:18px\"><div class=\"floor\">Schlafzimmer · Schimmel-DRY Shadow</div><div class=\"name\">Empfehlung: '+c.recommendation+'</div><div style=\"margin:8px 0\">'+c.reason+'</div><div class=\"muted\">≥70%: '+c.elevated_min+' min · ≥80%: '+c.high_min+' min · ≥90%: '+c.critical_min+' min · Energie bereit: '+c.flex_ready+' ('+c.flex_min+' min) · Gruppe 1: '+c.dry1+' · Gruppe 2: '+c.dry2+'</div></div>':'';document.getElementById('rooms').innerHTML=d.rooms.map(r=>'<div class="card"><div class="floor">'+r.floor+'</div><div class="name">'+r.name+'</div><div class="vals"><div><span class="big">'+r.temperature+'°C</span><div class="muted">Raum</div></div><div><span class="big">'+r.humidity+'%</span><div class="muted">rF</div></div></div><div>Taupunkt '+r.dew_point+'°C · abs. Feuchte '+r.absolute_humidity+' g/m³</div>'+(r.surface_humidity!==undefined?'<div>kritische Oberfläche: '+r.wall_temperature+'°C / '+r.surface_humidity+'%</div>':'')+'<p><span class="badge '+r.risk+'">'+r.risk+'</span> <span class="muted">'+r.method+'</span></p></div>').join('');}load();setInterval(load,30000);</script></body></html>'''
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
