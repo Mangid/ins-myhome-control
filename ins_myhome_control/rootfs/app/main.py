@@ -31,6 +31,17 @@ def surface_risk(rh):
     if rh>=70:return "ERHOEHT"
     return "NIEDRIG"
 
+def text_state(eid):
+    try: return ha_state(eid)["state"]
+    except Exception: return "unknown"
+
+def elapsed(key,active,now):
+    if not active:
+        TIMERS.pop(key,None)
+        return 0
+    TIMERS.setdefault(key,now)
+    return int(now-TIMERS[key])
+
 with open(INVENTORY,encoding="utf-8") as f: INVENTORY_DATA=json.load(f)
 ROOM_NAMES={"kitchen":"Küche","wc":"WC","vestibule":"Windfang","living_room":"Wohnzimmer","guest_room":"Gästezimmer","bedroom":"Schlafzimmer","child_room":"Kinderzimmer","bathroom":"Badezimmer","storage":"Lagerraum","garage":"Garage","workshop":"Werkstatt","technical_room":"Technikraum","office":"Büro","hobby_room":"Hobbyraum","wood_boiler_room":"Holzkesselraum","pellet_room":"Pelletraum","boiler_room":"Heizraum"}
 
@@ -57,7 +68,7 @@ def collect_rooms():
     return sorted(out,key=lambda x:(-order.get(x["risk"],0),x["floor"],x["name"]))
 
 def loop():
-    print("INS MyHome Control 0.2.3 starting | mode=SHADOW | gui=8099",flush=True)
+    print("INS MyHome Control 0.2.4 starting | mode=SHADOW | gui=8099",flush=True)
     while True:
         try:
             rooms=collect_rooms()
