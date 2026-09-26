@@ -3,7 +3,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SUPERVISOR="http://supervisor/core/api"
 INVENTORY="/app/house_inventory.json"
-LATEST={"updated":None,"rooms":[],"energy":{},"bedroom_control":{}}\nTIMERS={}\nFLEX_READY=False
+LATEST={"updated":None,"rooms":[],"energy":{},"bedroom_control":{}}
+TIMERS={}
+FLEX_READY=False
 
 def token(): return os.environ.get("SUPERVISOR_TOKEN","")
 def ha_state(eid):
