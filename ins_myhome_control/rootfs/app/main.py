@@ -1,164 +1,89 @@
-import json
-import math
-import os
-import time
-import urllib.request
+import json, math, os, time, threading, urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-SUPERVISOR = "http://supervisor/core/api"
+SUPERVISOR="http://supervisor/core/api"
+INVENTORY="/app/house_inventory.json"
+LATEST={"updated":None,"rooms":[],"energy":{}}
 
-ENTITIES = {
-    "room_temp": "sensor.schlafzimmer_thip_schlafzimmer_temperatur",
-    "room_rh": "sensor.schlafzimmer_thip_schlafzimmer_rel_luftfeuchte",
-    "wall_corner": "sensor.schlafzimmer_shellypm_nordwand_schlafzimmer_temperatur",
-    "wall_center": "sensor.schlafzimmer_shellypm_nordwand_schlafzimmer_temperatur_2",
-    "grid_power": "sensor.em540_leistung",
-    "ac_thor_power": "sensor.my_pv_ac_thor_9s_leistung",
-    "dry_1": "switch.infrarot_schlafzimmer_2",
-    "dry_2": "switch.schlafzimmer_schimmeldry_schlafzimmer",
-}
-
-# Flexible energy pool: actual grid export + AC-THOR power that can yield to smaller loads.
-FLEX_ON_W = 300
-FLEX_OFF_W = 100
-FLEX_CONFIRM_S = 5 * 60
-ELEVATED_CONFIRM_S = 20 * 60
-HIGH_CONFIRM_S = 20 * 60
-CRITICAL_CONFIRM_S = 5 * 60
-
-def token():
-    return os.environ.get("SUPERVISOR_TOKEN", "")
-
-def state(entity_id):
-    req = urllib.request.Request(
-        f"{SUPERVISOR}/states/{entity_id}",
-        headers={"Authorization": f"Bearer {token()}", "Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=5) as r:
-        return json.load(r)
-
-def number(entity_id):
-    try:
-        return float(state(entity_id)["state"])
-    except Exception:
-        return None
-
-def text_state(entity_id):
-    try:
-        return state(entity_id)["state"]
-    except Exception:
-        return "unknown"
-
-def dew_point(t, rh):
-    a, b = 17.62, 243.12
-    g = (a * t / (b + t)) + math.log(rh / 100.0)
-    return b * g / (a - g)
-
-def surface_rh(td, tw):
-    a, b = 17.62, 243.12
-    return 100.0 * math.exp((a * td / (b + td)) - (a * tw / (b + tw)))
-
-def risk(rh):
-    if rh >= 90: return "KRITISCH"
-    if rh >= 80: return "HOCH"
-    if rh >= 70: return "ERHOEHT"
+def token(): return os.environ.get("SUPERVISOR_TOKEN","")
+def ha_state(eid):
+    req=urllib.request.Request(f"{SUPERVISOR}/states/{eid}",headers={"Authorization":f"Bearer {token()}","Content-Type":"application/json"})
+    with urllib.request.urlopen(req,timeout=5) as r: return json.load(r)
+def num(eid):
+    try: return float(ha_state(eid)["state"])
+    except Exception: return None
+def dew(t,rh):
+    a,b=17.62,243.12; g=(a*t/(b+t))+math.log(rh/100.0); return b*g/(a-g)
+def abs_humidity(t,rh):
+    return 216.7*((rh/100.0)*6.112*math.exp((17.62*t)/(243.12+t)))/(273.15+t)
+def surface_rh(td,tw):
+    a,b=17.62,243.12
+    return 100*math.exp((a*td/(b+td))-(a*tw/(b+tw)))
+def room_risk(rh):
+    if rh>=70:return "HOCH"
+    if rh>=60:return "ERHOEHT"
+    return "NIEDRIG"
+def surface_risk(rh):
+    if rh>=90:return "KRITISCH"
+    if rh>=80:return "HOCH"
+    if rh>=70:return "ERHOEHT"
     return "NIEDRIG"
 
-class Since:
-    def __init__(self):
-        self.values = {}
+with open(INVENTORY,encoding="utf-8") as f: INVENTORY_DATA=json.load(f)
+ROOM_NAMES={"kitchen":"Küche","wc":"WC","vestibule":"Windfang","living_room":"Wohnzimmer","guest_room":"Gästezimmer","bedroom":"Schlafzimmer","child_room":"Kinderzimmer","bathroom":"Badezimmer","storage":"Lagerraum","garage":"Garage","workshop":"Werkstatt","technical_room":"Technikraum","office":"Büro","hobby_room":"Hobbyraum","wood_boiler_room":"Holzkesselraum","pellet_room":"Pelletraum","boiler_room":"Heizraum"}
 
-    def seconds(self, key, active, now):
-        if not active:
-            self.values.pop(key, None)
-            return 0
-        self.values.setdefault(key, now)
-        return int(now - self.values[key])
+def collect_rooms():
+    out=[]
+    for floor_key,floor_name in (("ground_floor","EG"),("basement","Keller")):
+        for key,cfg in INVENTORY_DATA["areas"].get(floor_key,{}).items():
+            t=num(cfg["temperature"]) if cfg.get("temperature") else None
+            rh=num(cfg["humidity"]) if cfg.get("humidity") else None
+            if t is None or rh is None: continue
+            td=dew(t,rh); ah=abs_humidity(t,rh)
+            row={"floor":floor_name,"key":key,"name":ROOM_NAMES.get(key,key),"temperature":round(t,1),"humidity":round(rh,1),"dew_point":round(td,1),"absolute_humidity":round(ah,1),"method":"Raumklima","risk":room_risk(rh)}
+            if key=="bedroom" and floor_key=="ground_floor":
+                vals=[]
+                for k in ("north_wall_corner","north_wall_center"):
+                    if cfg.get(k):
+                        tw=num(cfg[k])
+                        if tw is not None: vals.append((tw,surface_rh(td,tw)))
+                if vals:
+                    worst=max(vals,key=lambda x:x[1])
+                    row.update({"method":"Oberfläche gemessen","wall_temperature":round(worst[0],1),"surface_humidity":round(worst[1],1),"risk":surface_risk(worst[1])})
+            out.append(row)
+    order={"KRITISCH":4,"HOCH":3,"ERHOEHT":2,"NIEDRIG":1}
+    return sorted(out,key=lambda x:(-order.get(x["risk"],0),x["floor"],x["name"]))
 
-timers = Since()
-flex_available = False
+def loop():
+    print("INS MyHome Control 0.2.0 starting | mode=SHADOW | gui=8099",flush=True)
+    while True:
+        try:
+            rooms=collect_rooms()
+            grid=num(INVENTORY_DATA["areas"]["energy"]["grid_power"])
+            ac=num(INVENTORY_DATA["areas"]["energy"]["ac_thor_power"])
+            export=max(0,-grid) if grid is not None else 0
+            acp=max(0,ac) if ac is not None else 0
+            LATEST.update({"updated":time.strftime("%Y-%m-%d %H:%M:%S"),"rooms":rooms,"energy":{"grid_export":round(export),"ac_thor":round(acp),"flexible":round(export+acp)}})
+            bed=next((r for r in rooms if r["key"]=="bedroom" and r["floor"]=="EG"),None)
+            if bed: print(f'climate overview | rooms={len(rooms)} bedroom_risk={bed["risk"]} method={bed["method"]}',flush=True)
+        except Exception as e: print(f"ERROR | {type(e).__name__}: {e}",flush=True)
+        time.sleep(30)
 
-print("INS MyHome Control 0.1.3 starting | mode=SHADOW", flush=True)
+HTML='''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>INS MyHome Control</title>
+<style>body{font-family:system-ui;margin:0;background:#10151c;color:#edf3f8}.wrap{max-width:1100px;margin:auto;padding:18px}h1{margin:0 0 4px}.sub{color:#9fb0c0;margin-bottom:16px}.top,.grid{display:grid;gap:12px}.top{grid-template-columns:repeat(3,1fr);margin-bottom:18px}.card,.stat{background:#18212b;border:1px solid #283746;border-radius:14px;padding:14px}.grid{grid-template-columns:repeat(auto-fit,minmax(235px,1fr))}.name{font-size:18px;font-weight:700}.floor,.muted{color:#9fb0c0;font-size:13px}.vals{display:flex;gap:14px;margin:10px 0}.big{font-size:22px}.badge{display:inline-block;padding:4px 9px;border-radius:999px;background:#273544}.NIEDRIG{background:#173d2b}.ERHOEHT{background:#594916}.HOCH{background:#64391b}.KRITISCH{background:#6b2228}@media(max-width:650px){.top{grid-template-columns:1fr}}</style></head>
+<body><div class="wrap"><h1>INS MyHome Control</h1><div class="sub">Raumklima & Schimmelübersicht · Shadow</div><div class="top" id="energy"></div><div class="grid" id="rooms"></div></div>
+<script>async function load(){let d=await fetch('api/status').then(r=>r.json());document.getElementById('energy').innerHTML='<div class="stat"><div class="muted">Flexibler PV-Pool</div><div class="big">'+d.energy.flexible+' W</div></div><div class="stat"><div class="muted">AC-THOR</div><div class="big">'+d.energy.ac_thor+' W</div></div><div class="stat"><div class="muted">Netzexport</div><div class="big">'+d.energy.grid_export+' W</div></div>';document.getElementById('rooms').innerHTML=d.rooms.map(r=>'<div class="card"><div class="floor">'+r.floor+'</div><div class="name">'+r.name+'</div><div class="vals"><div><span class="big">'+r.temperature+'°C</span><div class="muted">Raum</div></div><div><span class="big">'+r.humidity+'%</span><div class="muted">rF</div></div></div><div>Taupunkt '+r.dew_point+'°C · abs. Feuchte '+r.absolute_humidity+' g/m³</div>'+(r.surface_humidity!==undefined?'<div>kritische Oberfläche: '+r.wall_temperature+'°C / '+r.surface_humidity+'%</div>':'')+'<p><span class="badge '+r.risk+'">'+r.risk+'</span> <span class="muted">'+r.method+'</span></p></div>').join('');}load();setInterval(load,30000);</script></body></html>'''
 
-while True:
-    try:
-        now = time.monotonic()
-        t = number(ENTITIES["room_temp"])
-        rh = number(ENTITIES["room_rh"])
-        corner = number(ENTITIES["wall_corner"])
-        center = number(ENTITIES["wall_center"])
-        grid = number(ENTITIES["grid_power"])
-        ac_thor = number(ENTITIES["ac_thor_power"])
-
-        if None in (t, rh, corner, center):
-            print("climate | waiting for valid bedroom sensors", flush=True)
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        path=self.path.split("?")[0].rstrip("/")
+        if path.endswith("/api/status"):
+            body=json.dumps(LATEST,ensure_ascii=False).encode()
+            self.send_response(200);self.send_header("Content-Type","application/json; charset=utf-8");self.end_headers();self.wfile.write(body)
         else:
-            td = dew_point(t, rh)
-            crh = surface_rh(td, corner)
-            mrh = surface_rh(td, center)
-            worst = max(crh, mrh)
-            level = risk(worst)
+            body=HTML.encode()
+            self.send_response(200);self.send_header("Content-Type","text/html; charset=utf-8");self.end_headers();self.wfile.write(body)
+    def log_message(self,*args): pass
 
-            grid_export = max(0.0, -grid) if grid is not None else 0.0
-            ac_thor_flex = max(0.0, ac_thor) if ac_thor is not None else 0.0
-            flexible_power = grid_export + ac_thor_flex
-
-            elevated_s = timers.seconds("elevated", worst >= 70, now)
-            high_s = timers.seconds("high", worst >= 80, now)
-            critical_s = timers.seconds("critical", worst >= 90, now)
-
-            flex_on_s = timers.seconds("flex_on", flexible_power >= FLEX_ON_W, now)
-            if flex_available:
-                if flexible_power < FLEX_OFF_W:
-                    flex_available = False
-            elif flex_on_s >= FLEX_CONFIRM_S:
-                flex_available = True
-
-            if worst >= 90 and critical_s >= CRITICAL_CONFIRM_S:
-                recommendation = "BEIDE"
-                reason = f"kritische Oberflaechenfeuchte {worst:.1f}% seit {critical_s//60} min"
-            elif worst >= 80 and high_s >= HIGH_CONFIRM_S:
-                recommendation = "GRUPPE_1"
-                reason = f"hohe Oberflaechenfeuchte {worst:.1f}% seit {high_s//60} min; Schutzbedarf unabhaengig von Energiepool"
-            elif worst >= 70 and elevated_s >= ELEVATED_CONFIRM_S and flex_available:
-                recommendation = "GRUPPE_1"
-                reason = (
-                    f"erhoehte Oberflaechenfeuchte {worst:.1f}% seit {elevated_s//60} min; "
-                    f"flexibler PV-Pool {flexible_power:.0f}W "
-                    f"(Netzexport {grid_export:.0f}W + AC-THOR {ac_thor_flex:.0f}W)"
-                )
-            else:
-                recommendation = "HOLD"
-                if worst < 70:
-                    reason = f"Oberflaechenfeuchte {worst:.1f}% unkritisch"
-                elif worst < 80:
-                    reason = (
-                        f"Oberflaechenfeuchte {worst:.1f}% seit {elevated_s//60} min erhoeht; "
-                        f"flexibler PV-Pool {flexible_power:.0f}W, "
-                        f"flex_ready={str(flex_available).lower()}; Praeventivheizen ab 20 min + Energie-Freigabe"
-                    )
-                else:
-                    reason = f"Oberflaechenfeuchte {worst:.1f}% hoch; Zeitbedingung noch nicht erreicht"
-
-            dry1 = text_state(ENTITIES["dry_1"])
-            dry2 = text_state(ENTITIES["dry_2"])
-
-            print(
-                f"energy pool | grid_export={grid_export:.0f}W ac_thor={ac_thor_flex:.0f}W "
-                f"flexible={flexible_power:.0f}W flex_ready={str(flex_available).lower()} flex_for={flex_on_s//60}m",
-                flush=True,
-            )
-            print(
-                f"bedroom north wall | room={t:.1f}C rh={rh:.1f}% dew={td:.1f}C "
-                f"corner={corner:.1f}C/{crh:.1f}% center={center:.1f}C/{mrh:.1f}% "
-                f"risk={level} elevated_for={elevated_s//60}m high_for={high_s//60}m critical_for={critical_s//60}m "
-                f"dry1={dry1} dry2={dry2}",
-                flush=True,
-            )
-            print(
-                f"bedroom mold shadow | recommendation={recommendation} | reason={reason}",
-                flush=True,
-            )
-    except Exception as exc:
-        print(f"ERROR | {type(exc).__name__}: {exc}", flush=True)
-
-    time.sleep(30)
+threading.Thread(target=loop,daemon=True).start()
+ThreadingHTTPServer(("0.0.0.0",8099),Handler).serve_forever()
