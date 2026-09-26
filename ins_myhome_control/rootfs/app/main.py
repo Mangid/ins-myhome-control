@@ -77,7 +77,7 @@ class Since:
 timers = Since()
 flex_available = False
 
-print("INS MyHome Control 0.1.2 starting | mode=SHADOW", flush=True)
+print("INS MyHome Control 0.1.3 starting | mode=SHADOW", flush=True)
 
 while True:
     try:
@@ -132,8 +132,9 @@ while True:
                     reason = f"Oberflaechenfeuchte {worst:.1f}% unkritisch"
                 elif worst < 80:
                     reason = (
-                        f"Oberflaechenfeuchte {worst:.1f}% erhoeht; "
-                        f"flexibler PV-Pool {flexible_power:.0f}W, Zeit-/Energiebedingung noch nicht erfuellt"
+                        f"Oberflaechenfeuchte {worst:.1f}% seit {elevated_s//60} min erhoeht; "
+                        f"flexibler PV-Pool {flexible_power:.0f}W, "
+                        f"flex_ready={str(flex_available).lower()}; Praeventivheizen ab 20 min + Energie-Freigabe"
                     )
                 else:
                     reason = f"Oberflaechenfeuchte {worst:.1f}% hoch; Zeitbedingung noch nicht erreicht"
@@ -143,13 +144,14 @@ while True:
 
             print(
                 f"energy pool | grid_export={grid_export:.0f}W ac_thor={ac_thor_flex:.0f}W "
-                f"flexible={flexible_power:.0f}W flex_ready={str(flex_available).lower()}",
+                f"flexible={flexible_power:.0f}W flex_ready={str(flex_available).lower()} flex_for={flex_on_s//60}m",
                 flush=True,
             )
             print(
                 f"bedroom north wall | room={t:.1f}C rh={rh:.1f}% dew={td:.1f}C "
                 f"corner={corner:.1f}C/{crh:.1f}% center={center:.1f}C/{mrh:.1f}% "
-                f"risk={level} dry1={dry1} dry2={dry2}",
+                f"risk={level} elevated_for={elevated_s//60}m high_for={high_s//60}m critical_for={critical_s//60}m "
+                f"dry1={dry1} dry2={dry2}",
                 flush=True,
             )
             print(
