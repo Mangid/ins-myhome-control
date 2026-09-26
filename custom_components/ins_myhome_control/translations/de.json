@@ -1,0 +1,21 @@
+{
+  "title": "INS MyHome Control",
+  "config": {
+    "step": {
+      "user": {
+        "title": "INS MyHome Control einrichten",
+        "description": "Wähle die vorhandenen Home-Assistant-Entities für die erste Schlafzimmer-Nordwand-Auswertung.",
+        "data": {
+          "room_temperature": "Raumtemperatur Schlafzimmer",
+          "room_humidity": "Relative Luftfeuchte Schlafzimmer",
+          "wall_corner_temperature": "Nordwand Temperatur Ecke",
+          "wall_center_temperature": "Nordwand Temperatur Mitte",
+          "grid_power": "Netzleistung EM540"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "INS MyHome Control ist bereits eingerichtet."
+    }
+  }
+}
