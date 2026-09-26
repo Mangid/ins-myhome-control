@@ -57,7 +57,7 @@ def collect_rooms():
     return sorted(out,key=lambda x:(-order.get(x["risk"],0),x["floor"],x["name"]))
 
 def loop():
-    print("INS MyHome Control 0.2.1 starting | mode=SHADOW | gui=8099",flush=True)
+    print("INS MyHome Control 0.2.3 starting | mode=SHADOW | gui=8099",flush=True)
     while True:
         try:
             rooms=collect_rooms()
@@ -65,8 +65,32 @@ def loop():
             ac=num(INVENTORY_DATA["areas"]["energy"]["ac_thor_power"])
             export=max(0,-grid) if grid is not None else 0
             acp=max(0,ac) if ac is not None else 0
-            LATEST.update({"updated":time.strftime("%Y-%m-%d %H:%M:%S"),"rooms":rooms,"energy":{"grid_export":round(export),"ac_thor":round(acp),"flexible":round(export+acp)}})
+            flexible=export+acp
             bed=next((r for r in rooms if r["key"]=="bedroom" and r["floor"]=="EG"),None)
+            control={}
+            if bed and bed.get("surface_humidity") is not None:
+                global FLEX_READY
+                now=time.monotonic()
+                worst=bed["surface_humidity"]
+                elev=elapsed("bed_elev",worst>=70,now)
+                high=elapsed("bed_high",worst>=80,now)
+                crit=elapsed("bed_crit",worst>=90,now)
+                flex_for=elapsed("flex",flexible>=300,now)
+                if FLEX_READY and flexible<100: FLEX_READY=False
+                elif (not FLEX_READY) and flex_for>=300: FLEX_READY=True
+                if worst>=90 and crit>=300:
+                    rec="BEIDE"; reason=f"Kritisch {worst:.1f}% seit {crit//60} min"
+                elif worst>=80 and high>=1200:
+                    rec="GRUPPE_1"; reason=f"Hoch {worst:.1f}% seit {high//60} min - Schutzbedarf unabhaengig von PV"
+                elif worst>=70 and elev>=1200 and FLEX_READY:
+                    rec="GRUPPE_1"; reason=f"Erhoeht {worst:.1f}% seit {elev//60} min - flexibler PV-Pool {flexible:.0f} W"
+                else:
+                    rec="AUS"
+                    reason=(f"{worst:.1f}% seit {elev//60} min erhoeht; Freigabe ab 20 min + Energie" if worst>=70 else f"{worst:.1f}% unkritisch")
+                bc=INVENTORY_DATA["areas"]["ground_floor"]["bedroom"]
+                control={"recommendation":rec,"reason":reason,"elevated_min":elev//60,"high_min":high//60,"critical_min":crit//60,"flex_ready":FLEX_READY,"flex_min":flex_for//60,"dry1":text_state(bc["mold_dry_1"]),"dry2":text_state(bc["mold_dry_2"])}
+                print(f"bedroom mold shadow | recommendation={rec} | elevated_for={elev//60}m flex_ready={str(FLEX_READY).lower()} | reason={reason}",flush=True)
+            LATEST.update({"updated":time.strftime("%Y-%m-%d %H:%M:%S"),"rooms":rooms,"energy":{"grid_export":round(export),"ac_thor":round(acp),"flexible":round(flexible)},"bedroom_control":control})
             if bed: print(f'climate overview | rooms={len(rooms)} bedroom_risk={bed["risk"]} method={bed["method"]}',flush=True)
         except Exception as e: print(f"ERROR | {type(e).__name__}: {e}",flush=True)
         time.sleep(30)
