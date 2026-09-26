@@ -1,11 +1,10 @@
 import json
 import math
+import os
 import time
 import urllib.request
-import urllib.error
 
 SUPERVISOR = "http://supervisor/core/api"
-TOKEN_FILE = "/var/run/secrets/homeassistant"
 
 ENTITIES = {
     "room_temp": "sensor.schlafzimmer_thip_schlafzimmer_temperatur",
@@ -17,8 +16,15 @@ ENTITIES = {
     "dry_2": "switch.schlafzimmer_schimmeldry_schlafzimmer",
 }
 
+# First conservative SHADOW thresholds. We will tune these from real data.
+PV_ON_W = 300
+PV_OFF_W = 100
+PV_CONFIRM_S = 5 * 60
+ELEVATED_CONFIRM_S = 20 * 60
+HIGH_CONFIRM_S = 20 * 60
+CRITICAL_CONFIRM_S = 5 * 60
+
 def token():
-    import os
     return os.environ.get("SUPERVISOR_TOKEN", "")
 
 def state(entity_id):
@@ -35,6 +41,12 @@ def number(entity_id):
     except Exception:
         return None
 
+def text_state(entity_id):
+    try:
+        return state(entity_id)["state"]
+    except Exception:
+        return "unknown"
+
 def dew_point(t, rh):
     a, b = 17.62, 243.12
     g = (a * t / (b + t)) + math.log(rh / 100.0)
@@ -50,10 +62,25 @@ def risk(rh):
     if rh >= 70: return "ERHOEHT"
     return "NIEDRIG"
 
-print("INS MyHome Control 0.1.0 starting | mode=SHADOW", flush=True)
+class Since:
+    def __init__(self):
+        self.values = {}
+
+    def seconds(self, key, active, now):
+        if not active:
+            self.values.pop(key, None)
+            return 0
+        self.values.setdefault(key, now)
+        return int(now - self.values[key])
+
+timers = Since()
+pv_available = False
+
+print("INS MyHome Control 0.1.1 starting | mode=SHADOW", flush=True)
 
 while True:
     try:
+        now = time.monotonic()
         t = number(ENTITIES["room_temp"])
         rh = number(ENTITIES["room_rh"])
         corner = number(ENTITIES["wall_corner"])
@@ -67,17 +94,54 @@ while True:
             crh = surface_rh(td, corner)
             mrh = surface_rh(td, center)
             worst = max(crh, mrh)
-            surplus = max(0.0, -grid) if grid is not None else None
+            level = risk(worst)
+            surplus = max(0.0, -grid) if grid is not None else 0.0
+
+            elevated_s = timers.seconds("elevated", worst >= 70, now)
+            high_s = timers.seconds("high", worst >= 80, now)
+            critical_s = timers.seconds("critical", worst >= 90, now)
+
+            if pv_available:
+                if surplus < PV_OFF_W:
+                    pv_available = False
+            elif timers.seconds("pv_on", surplus >= PV_ON_W, now) >= PV_CONFIRM_S:
+                pv_available = True
+            if surplus < PV_ON_W:
+                timers.seconds("pv_on", False, now)
+
+            if worst >= 90 and critical_s >= CRITICAL_CONFIRM_S:
+                recommendation = "BEIDE"
+                reason = f"kritische Oberflaechenfeuchte {worst:.1f}% seit {critical_s//60} min"
+            elif worst >= 80 and high_s >= HIGH_CONFIRM_S:
+                recommendation = "GRUPPE_1"
+                reason = f"hohe Oberflaechenfeuchte {worst:.1f}% seit {high_s//60} min; Schutzbedarf unabhaengig von PV"
+            elif worst >= 70 and elevated_s >= ELEVATED_CONFIRM_S and pv_available:
+                recommendation = "GRUPPE_1"
+                reason = f"erhoehte Oberflaechenfeuchte {worst:.1f}% seit {elevated_s//60} min und PV-Ueberschuss verfuegbar"
+            else:
+                recommendation = "HOLD"
+                if worst < 70:
+                    reason = f"Oberflaechenfeuchte {worst:.1f}% unkritisch"
+                elif worst < 80:
+                    reason = f"Oberflaechenfeuchte {worst:.1f}% erhoeht; noch kein bestaetigter PV-Heizbedarf"
+                else:
+                    reason = f"Oberflaechenfeuchte {worst:.1f}% hoch; Zeitbedingung noch nicht erreicht"
+
+            dry1 = text_state(ENTITIES["dry_1"])
+            dry2 = text_state(ENTITIES["dry_2"])
+
             print(
-                f"bedroom north wall | room={t:.1f}C rh={rh:.1f}% "
-                f"dew={td:.1f}C corner={corner:.1f}C/{crh:.1f}% "
-                f"center={center:.1f}C/{mrh:.1f}% risk={risk(worst)} "
-                f"pv_surplus={surplus:.0f}W" if surplus is not None else
-                f"bedroom north wall | room={t:.1f}C rh={rh:.1f}% "
-                f"dew={td:.1f}C corner={corner:.1f}C/{crh:.1f}% "
-                f"center={center:.1f}C/{mrh:.1f}% risk={risk(worst)}",
+                f"bedroom north wall | room={t:.1f}C rh={rh:.1f}% dew={td:.1f}C "
+                f"corner={corner:.1f}C/{crh:.1f}% center={center:.1f}C/{mrh:.1f}% "
+                f"risk={level} pv_surplus={surplus:.0f}W pv_ready={str(pv_available).lower()} "
+                f"dry1={dry1} dry2={dry2}",
+                flush=True,
+            )
+            print(
+                f"bedroom mold shadow | recommendation={recommendation} | reason={reason}",
                 flush=True,
             )
     except Exception as exc:
         print(f"ERROR | {type(exc).__name__}: {exc}", flush=True)
+
     time.sleep(30)
