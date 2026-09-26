@@ -1,0 +1,166 @@
+{
+  "project": "INS MyHome Control",
+  "purpose": "Private home only",
+  "areas": {
+    "outdoor": {
+      "terrace": {
+        "temperature": "sensor.terrasse_aussensensor_temperatur",
+        "humidity": "sensor.terrasse_aussensensor_luftfeuchtigkeit"
+      },
+      "garden": {"light": "light.garten_aussenbeleuchtung_licht_outdoor"},
+      "driveway": {"garage_floodlight": "light.einfahrt_garage_outdoor_garage_fluter"}
+    },
+    "ground_floor": {
+      "kitchen": {
+        "orientation": ["east", "south"],
+        "temperature": "sensor.kuche_th_kuche_k_temperatur",
+        "humidity": "sensor.kuche_th_kuche_k_luftfeuchtigkeit",
+        "presence": "binary_sensor.kuche_prasenzmelder_kuche_anwesenheit",
+        "illuminance": "sensor.kuche_prasenzmelder_kuche_beleuchtungsstarke",
+        "fridge_power": "sensor.shellyplug_kuhlschrank_leistung",
+        "fridge_energy": "sensor.shellyplug_kuhlschrank_energie"
+      },
+      "wc": {
+        "orientation": ["south"],
+        "presence": "binary_sensor.wc_prasenzmelder_wc_anwesenheit",
+        "illuminance": "sensor.wc_prasenzmelder_wc_beleuchtungsstarke"
+      },
+      "vestibule": {
+        "orientation": ["south"],
+        "temperature": "sensor.windfang_th_windfang_k_temperatur",
+        "humidity": "sensor.windfang_th_windfang_k_luftfeuchtigkeit",
+        "motion": "binary_sensor.windfang_bewegungsmelder_windfang_bewegung",
+        "illuminance": "sensor.windfang_bewegungsmelder_windfang_beleuchtungsstarke"
+      },
+      "living_room": {
+        "orientation": ["south", "west"],
+        "temperature": "sensor.wohnzimmer_thip_wohnzimmer_temperatur",
+        "humidity": "sensor.wohnzimmer_thip_wohnzimmer_rel_luftfeuchte",
+        "presence": "binary_sensor.wohnzimmer_prasenzmelder_wohnzimmer_anwesenheit",
+        "illuminance": "sensor.wohnzimmer_prasenzmelder_wohnzimmer_beleuchtungsstarke",
+        "blind": "cover.wohnzimmer_rollo_wohnzimmer_rollo_wohnzimmer",
+        "tv_power": "sensor.wohnzimmer_tv_unten_leistung",
+        "tv_energy": "sensor.wohnzimmer_tv_unten_energie",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_0000000c_smoke_status"
+      },
+      "guest_room": {
+        "orientation": ["west"],
+        "temperature": "sensor.gastezimmer_th_gastezimmer_temperatur",
+        "humidity": "sensor.gastezimmer_th_gastezimmer_luftfeuchtigkeit",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_0000000d_smoke_status"
+      },
+      "bedroom": {
+        "orientation": ["west", "north"],
+        "temperature": "sensor.schlafzimmer_thip_schlafzimmer_temperatur",
+        "humidity": "sensor.schlafzimmer_thip_schlafzimmer_rel_luftfeuchte",
+        "north_wall_corner": "sensor.schlafzimmer_shellypm_nordwand_schlafzimmer_temperatur",
+        "north_wall_center": "sensor.schlafzimmer_shellypm_nordwand_schlafzimmer_temperatur_2",
+        "mold_dry_1": "switch.infrarot_schlafzimmer_2",
+        "mold_dry_2": "switch.schlafzimmer_schimmeldry_schlafzimmer",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_0000000e_smoke_status"
+      },
+      "child_room": {
+        "orientation": ["north", "east"],
+        "temperature": "sensor.kinderzimmer_1_thip_kinderzimmer_temperatur",
+        "humidity": "sensor.kinderzimmer_1_thip_kinderzimmer_rel_luftfeuchte",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_0000000f_smoke_status"
+      },
+      "bathroom": {
+        "orientation": ["east"],
+        "temperature": "sensor.badezimmer_th_badezimmer_k_temperatur",
+        "humidity": "sensor.badezimmer_th_badezimmer_k_luftfeuchtigkeit",
+        "presence": "binary_sensor.badezimmer_prasenzmelder_bad_anwesenheit",
+        "illuminance": "sensor.badezimmer_prasenzmelder_bad_beleuchtungsstarke",
+        "radiator_temperature": "sensor.badezimmer_hktip_bad_temperatur"
+      }
+    },
+    "basement": {
+      "storage": {
+        "temperature": "sensor.lagerraum_th_lagerraum_temperatur",
+        "humidity": "sensor.lagerraum_th_lagerraum_luftfeuchtigkeit",
+        "motion": "binary_sensor.lagerraum_bewegungsmelder_lagerraum_bewegung",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_00000007_smoke_status",
+        "dehumidifier_switch_candidate": "switch.shellyplug_heizung",
+        "note": "dehumidifier mapping to be verified"
+      },
+      "bathroom": {
+        "temperature": "sensor.badezimmer_th_bad_temperatur",
+        "humidity": "sensor.badezimmer_th_bad_luftfeuchtigkeit"
+      },
+      "garage": {
+        "temperature": "sensor.garage_temp_hum_garage_k_temperatur",
+        "humidity": "sensor.garage_temp_hum_garage_k_luftfeuchtigkeit",
+        "motion": "binary_sensor.garage_bewegungsmelder_garage_bewegung",
+        "house_door": "binary_sensor.garage_garagenturkontakt",
+        "door_niki": "cover.garage_garagentor_niki",
+        "door_regina": "cover.garage_garagentor_regina",
+        "door_niki_state": "sensor.garage_garagentor_niki_turzustand",
+        "door_regina_state": "sensor.garage_garagentor_regina_turzustand",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_00000009_smoke_status",
+        "fan_device": "device_tracker.shelly1_luefter_garage"
+      },
+      "workshop": {
+        "temperature": "sensor.werkstatt_th_werkstatt_temperatur",
+        "humidity": "sensor.werkstatt_th_werkstatt_luftfeuchtigkeit",
+        "motion": "binary_sensor.werkstatt_bewegungsmelder_werkstatt_bewegung",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_00000004_smoke_status",
+        "server_cabinet_power": "sensor.werkstatt_entfeuchter_werkstatt_leistung",
+        "server_cabinet_energy": "sensor.werkstatt_entfeuchter_werkstatt_energie",
+        "washing_machine_power": "sensor.werkstatt_waschmaschine_leistung",
+        "washing_machine_energy": "sensor.werkstatt_waschmaschine_energiezahler",
+        "note": "workshop dehumidifier entities still to be verified"
+      },
+      "technical_room": {
+        "inside_workshop": true,
+        "temperature": "sensor.futus_mix_technikraum_temperatur_technikraum",
+        "fan": "switch.luefter",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_00000001_smoke_status",
+        "safety": {
+          "main_to_subpanel_feed_temperature": "sensor.futus_mix_technikraum_temperatur_technikraum_zuleitung",
+          "feed_temperature_2": "sensor.temp_zuleitung_temperatur",
+          "subpanel_uv2_temperature": "sensor.temp_uv2_temperatur",
+          "battery_cable_temperature": "sensor.temp_bat_kabel_temperatur",
+          "fronius_symo_cable_temperature": "sensor.temp_symo_kabel_temperatur"
+        }
+      },
+      "office": {
+        "temperature": "sensor.buro_thip_buro_temperatur",
+        "humidity": "sensor.buro_thip_buro_rel_luftfeuchte",
+        "temperature_2": "sensor.shelly_blu_h_t_display_zb_temperatur",
+        "humidity_2": "sensor.shelly_blu_h_t_display_zb_luftfeuchtigkeit",
+        "presence": "binary_sensor.prasenzmelder",
+        "desk_power": "sensor.buro_buro_schreibtisch_leistung",
+        "desk_energy": "sensor.buro_buro_schreibtisch_energiezahler",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_00000002_smoke_status",
+        "note": "server rack entity assignment needs later verification"
+      },
+      "hobby_room": {
+        "temperature": "sensor.hobbyraum_th_hobbyraum_temperatur",
+        "humidity": "sensor.hobbyraum_th_hobbyraum_luftfeuchtigkeit",
+        "radiator_battery": "binary_sensor.hobbyraum_hktip_hobbyraum_batterie"
+      },
+      "wood_boiler_room": {
+        "separate_access": true,
+        "note": "currently no dedicated HA room sensor; boiler temperature exists via OekoFEN interface"
+      },
+      "pellet_room": {
+        "temperature": "sensor.pelletsraum_temp_hum_pelletraum_temperatur",
+        "humidity": "sensor.pelletsraum_temp_hum_pelletraum_luftfeuchtigkeit",
+        "motion": "binary_sensor.pelletsraum_bewegungsmelder_pelletraum_bewegung",
+        "north_outside_door": "binary_sensor.pelletsraum_ftkip_kellertur_hinten",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_00000008_smoke_status"
+      },
+      "boiler_room": {
+        "temperature": "sensor.heizraum_temp_hum_heizraum_temperatur",
+        "humidity": "sensor.heizraum_temp_hum_heizraum_luftfeuchtigkeit",
+        "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_0000000a_smoke_status",
+        "pellet_boiler_power": "sensor.shellyplugpmg3_48f6eebdc328_leistung",
+        "pellet_boiler_energy": "sensor.shellyplugpmg3_48f6eebdc328_energie"
+      }
+    },
+    "energy": {
+      "grid_power": "sensor.em540_leistung",
+      "ac_thor_power": "sensor.my_pv_ac_thor_9s_leistung"
+    }
+  }
+}
