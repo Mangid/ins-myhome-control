@@ -98,7 +98,7 @@ def collect_rooms(outdoor_ah=None):
     return sorted(out,key=lambda x:(-order.get(x["risk"],0),x["floor"],x["name"]))
 
 def loop():
-    load_persistent()\n    print("INS MyHome Control 0.3.6 starting | mode=SHADOW | gui=8099 | state=/config",flush=True)
+    load_persistent()\n    print("INS MyHome Control 0.3.7 starting | mode=SHADOW | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
