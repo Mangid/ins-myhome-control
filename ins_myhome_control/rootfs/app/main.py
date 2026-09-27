@@ -116,7 +116,7 @@ def collect_rooms(outdoor_ah=None):
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.4.2 starting | mode=SHADOW | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.4.3 starting | mode=SHADOW | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
@@ -145,6 +145,8 @@ def loop():
                     rec="BEIDE"; reason=f"Kritisch {worst:.1f}% seit {crit//60} min"
                 elif worst>=80 and high>=1200:
                     rec="GRUPPE_1"; reason=f"Hoch {worst:.1f}% seit {high//60} min - Schutzbedarf unabhaengig von PV"
+                elif worst>=70 and elev>=10800:
+                    rec="GRUPPE_1"; reason=f"Langzeitschutz: {worst:.1f}% seit {elev//60} min erhoeht - unabhaengig von PV"
                 elif worst>=70 and elev>=1200 and FLEX_READY:
                     rec="GRUPPE_1"; reason=f"Erhoeht {worst:.1f}% seit {elev//60} min - flexibler PV-Pool {flexible:.0f} W"
                 else:
