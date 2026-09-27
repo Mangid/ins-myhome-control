@@ -112,7 +112,7 @@ def collect_rooms(outdoor_ah=None):
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.4.0 starting | mode=SHADOW | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.4.1 starting | mode=SHADOW | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
@@ -148,7 +148,7 @@ def loop():
                     reason=(f"{worst:.1f}% seit {elev//60} min erhoeht; Freigabe ab 20 min + Energie" if worst>=70 else f"{worst:.1f}% unkritisch")
                 bc=INVENTORY_DATA["areas"]["ground_floor"]["bedroom"]
                 control={"recommendation":rec,"reason":reason,"elevated_min":elev//60,"high_min":high//60,"critical_min":crit//60,"flex_ready":FLEX_READY,"flex_min":flex_for//60,"dry1":text_state(bc["mold_dry_1"]),"dry2":text_state(bc["mold_dry_2"]),"actuator_action":("EINSCHALTEN_BEIDE" if rec=="BEIDE" else ("EINSCHALTEN_GRUPPE_1" if rec=="GRUPPE_1" else "AUS")),"minimum_runtime_min":120,"off_threshold_surface_rh":72,"anti_cycle":True}
-                print(f"bedroom mold shadow | recommendation={rec} | elevated_for={elev//60}m flex_ready={str(FLEX_READY).lower()} | reason={reason}",flush=True); print(f"actuator shadow | action={control[\'actuator_action\']} min_runtime=120m off_below=72% anti_cycle=true | NO SWITCHING",flush=True)
+                print(f"bedroom mold shadow | recommendation={rec} | elevated_for={elev//60}m flex_ready={str(FLEX_READY).lower()} | reason={reason}",flush=True); print(f"actuator shadow | action={control['actuator_action']} min_runtime=120m off_below=72% anti_cycle=true | NO SWITCHING",flush=True)
             LATEST.update({"updated":time.strftime("%Y-%m-%d %H:%M:%S"),"rooms":rooms,"energy":{"grid_export":round(export),"ac_thor":round(acp),"flexible":round(flexible)},"bedroom_control":control,"outdoor":{"temperature":round(ot,1) if ot is not None else None,"humidity":round(orh,1) if orh is not None else None,"dew_point":round(otd,1) if otd is not None else None,"absolute_humidity":round(oah,1) if oah is not None else None}})
             if bed: print(f'climate overview | rooms={len(rooms)} bedroom_risk={bed["risk"]} method={bed["method"]}',flush=True)
         except Exception as e: print(f"ERROR | {type(e).__name__}: {e}",flush=True)
