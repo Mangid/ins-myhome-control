@@ -35,12 +35,35 @@ def text_state(eid):
     try: return ha_state(eid)["state"]
     except Exception: return "unknown"
 
+def load_persistent():
+    global FLEX_READY
+    try:
+        with open(STATE_FILE,encoding="utf-8") as f:
+            data=json.load(f)
+        TIMERS.update({k:float(v) for k,v in data.get("timers",{}).items()})
+        FLEX_READY=bool(data.get("flex_ready",False))
+    except Exception:
+        pass
+
+def save_persistent():
+    try:
+        os.makedirs(os.path.dirname(STATE_FILE),exist_ok=True)
+        tmp=STATE_FILE+".tmp"
+        with open(tmp,"w",encoding="utf-8") as f:
+            json.dump({"timers":TIMERS,"flex_ready":FLEX_READY},f)
+        os.replace(tmp,STATE_FILE)
+    except Exception as e:
+        print(f"state persist warning | {e}",flush=True)
+
 def elapsed(key,active,now):
     if not active:
-        TIMERS.pop(key,None)
+        if key in TIMERS:
+            TIMERS.pop(key,None); save_persistent()
         return 0
-    TIMERS.setdefault(key,now)
-    return int(now-TIMERS[key])
+    if key not in TIMERS:
+        TIMERS[key]=time.time()
+        save_persistent()
+    return int(time.time()-TIMERS[key])
 
 with open(INVENTORY,encoding="utf-8") as f: INVENTORY_DATA=json.load(f)
 ROOM_NAMES={"kitchen":"Küche","wc":"WC","vestibule":"Windfang","living_room":"Wohnzimmer","guest_room":"Gästezimmer","bedroom":"Schlafzimmer","child_room":"Kinderzimmer","bathroom":"Badezimmer","storage":"Lagerraum","garage":"Garage","workshop":"Werkstatt","technical_room":"Technikraum","office":"Büro","hobby_room":"Hobbyraum","wood_boiler_room":"Holzkesselraum","pellet_room":"Pelletraum","boiler_room":"Heizraum"}
