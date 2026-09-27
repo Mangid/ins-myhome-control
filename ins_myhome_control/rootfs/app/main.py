@@ -80,10 +80,21 @@ def collect_rooms(outdoor_ah=None):
             row={"floor":floor_name,"key":key,"name":ROOM_NAMES.get(key,key),"temperature":round(t,1),"humidity":round(rh,1),"dew_point":round(td,1),"absolute_humidity":round(ah,1),"method":"Raumklima","risk":room_risk(rh)}
             if outdoor_ah is not None:
                 delta=ah-outdoor_ah
-                if delta>=2.0: vent="LUEFTEN"
-                elif delta>=0.8: vent="MOEGLICH"
-                else: vent="NICHT_SINNVOLL"
-                row.update({"ventilation":vent,"humidity_delta":round(delta,1)})
+                if delta>=3.0:
+                    vent="SEHR_GUT"
+                    vreason=f"Außenluft ist {delta:.1f} g/m³ trockener"
+                elif delta>=1.5:
+                    vent="LUEFTEN"
+                    vreason=f"Außenluft ist {delta:.1f} g/m³ trockener"
+                elif delta>=0.6:
+                    vent="MOEGLICH"
+                    vreason=f"Kleiner Trocknungsvorteil: {delta:.1f} g/m³"
+                else:
+                    vent="NICHT_SINNVOLL"
+                    vreason="Außenluft bringt aktuell kaum Trocknung"
+                if floor_key=="basement" and delta<0.6:
+                    vreason="Keller: Außenluft bringt kaum Trocknung oder zusätzliche Feuchte"
+                row.update({"ventilation":vent,"ventilation_reason":vreason,"humidity_delta":round(delta,1)})
             if key=="bedroom" and floor_key=="ground_floor":
                 vals=[]
                 for k in ("north_wall_corner","north_wall_center"):
@@ -93,13 +104,15 @@ def collect_rooms(outdoor_ah=None):
                 if vals:
                     worst=max(vals,key=lambda x:x[1])
                     row.update({"method":"Oberfläche gemessen","wall_temperature":round(worst[0],1),"surface_humidity":round(worst[1],1),"risk":surface_risk(worst[1])})
+                    if outdoor_ah is not None and worst[1]>=80 and row.get("ventilation") in ("SEHR_GUT","LUEFTEN"):
+                        row["ventilation_reason"]=f"Schimmelrisiko hoch; Außenluft {row['humidity_delta']:.1f} g/m³ trockener"
             out.append(row)
     order={"KRITISCH":4,"HOCH":3,"ERHOEHT":2,"NIEDRIG":1}
     return sorted(out,key=lambda x:(-order.get(x["risk"],0),x["floor"],x["name"]))
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.3.8 starting | mode=SHADOW | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.3.9 starting | mode=SHADOW | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
@@ -144,7 +157,7 @@ def loop():
 HTML='''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>INS MyHome Control</title>
 <style>body{font-family:system-ui;margin:0;background:#10151c;color:#edf3f8}.wrap{max-width:1100px;margin:auto;padding:18px}h1{margin:0 0 4px}.sub{color:#9fb0c0;margin-bottom:16px}.top,.grid{display:grid;gap:12px}.top{grid-template-columns:repeat(3,1fr);margin-bottom:18px}.card,.stat{background:#18212b;border:1px solid #283746;border-radius:14px;padding:14px}.grid{grid-template-columns:repeat(auto-fit,minmax(235px,1fr))}.name{font-size:18px;font-weight:700}.floor,.muted{color:#9fb0c0;font-size:13px}.vals{display:flex;gap:14px;margin:10px 0}.big{font-size:22px}.badge{display:inline-block;padding:4px 9px;border-radius:999px;background:#273544}.NIEDRIG{background:#173d2b}.ERHOEHT{background:#594916}.HOCH{background:#64391b}.KRITISCH{background:#6b2228}@media(max-width:650px){.top{grid-template-columns:1fr}}</style></head>
 <body><div class="wrap"><h1>INS MyHome Control</h1><div class="sub">Raumklima & Schimmelübersicht · Shadow</div><div class="top" id="energy"></div><div id="outside"></div><div id="bedctl"></div><div id="egtitle"></div><div class="grid" id="eg"></div><div id="ktitle"></div><div class="grid" id="kg"></div></div>
-<script>async function load(){let d=await fetch('api/status').then(r=>r.json());document.getElementById('energy').innerHTML='<div class="stat"><div class="muted">Flexibler PV-Pool</div><div class="big">'+d.energy.flexible+' W</div></div><div class="stat"><div class="muted">AC-THOR</div><div class="big">'+d.energy.ac_thor+' W</div></div><div class="stat"><div class="muted">Netzexport</div><div class="big">'+d.energy.grid_export+' W</div></div>';let c=d.bedroom_control||{};document.getElementById('bedctl').innerHTML=c.recommendation?'<div class=\"card\" style=\"margin-bottom:18px\"><div class=\"floor\">Schlafzimmer · Schimmel-DRY Shadow</div><div class=\"name\">Empfehlung: '+c.recommendation+'</div><div style=\"margin:8px 0\">'+c.reason+'</div><div class=\"muted\">≥70%: '+c.elevated_min+' min · ≥80%: '+c.high_min+' min · ≥90%: '+c.critical_min+' min · Energie bereit: '+c.flex_ready+' ('+c.flex_min+' min) · Gruppe 1: '+c.dry1+' · Gruppe 2: '+c.dry2+'</div></div>':'';document.getElementById('outside').innerHTML=d.outdoor.absolute_humidity!==null?'<div class="card" style="margin-bottom:18px"><div class="floor">Außenluft · Terrasse</div><div class="name">'+d.outdoor.temperature+'°C · '+d.outdoor.humidity+'%</div><div>Taupunkt '+d.outdoor.dew_point+'°C · abs. Feuchte '+d.outdoor.absolute_humidity+' g/m³</div></div>':'';function card(r){let v=r.ventilation||'UNBEKANNT';let vt=v==='LUEFTEN'?'Lüften empfohlen':(v==='MOEGLICH'?'Lüften möglich':'Fenster eher geschlossen');return '<div class="card"><div class="floor">'+r.floor+'</div><div class="name">'+r.name+'</div><div class="vals"><div><span class="big">'+r.temperature+'°C</span><div class="muted">Raum</div></div><div><span class="big">'+r.humidity+'%</span><div class="muted">rF</div></div></div><div>Taupunkt '+r.dew_point+'°C · abs. Feuchte '+r.absolute_humidity+' g/m³</div>'+(r.surface_humidity!==undefined?'<div>kritische Oberfläche: '+r.wall_temperature+'°C / '+r.surface_humidity+'%</div>':'')+'<p><span class="badge '+r.risk+'">'+r.risk+'</span> <span class="muted">'+r.method+'</span></p><div><b>'+vt+'</b> <span class="muted">Δ '+(r.humidity_delta!==undefined?r.humidity_delta:'?')+' g/m³</span></div></div>';}document.getElementById('egtitle').innerHTML='<h2>Erdgeschoss</h2>';document.getElementById('ktitle').innerHTML='<h2>Keller</h2>';document.getElementById('eg').innerHTML=d.rooms.filter(r=>r.floor==='EG').map(card).join('');document.getElementById('kg').innerHTML=d.rooms.filter(r=>r.floor==='Keller').map(card).join('');}load();setInterval(load,30000);</script></body></html>'''
+<script>async function load(){let d=await fetch('api/status').then(r=>r.json());document.getElementById('energy').innerHTML='<div class="stat"><div class="muted">Flexibler PV-Pool</div><div class="big">'+d.energy.flexible+' W</div></div><div class="stat"><div class="muted">AC-THOR</div><div class="big">'+d.energy.ac_thor+' W</div></div><div class="stat"><div class="muted">Netzexport</div><div class="big">'+d.energy.grid_export+' W</div></div>';let c=d.bedroom_control||{};document.getElementById('bedctl').innerHTML=c.recommendation?'<div class=\"card\" style=\"margin-bottom:18px\"><div class=\"floor\">Schlafzimmer · Schimmel-DRY Shadow</div><div class=\"name\">Empfehlung: '+c.recommendation+'</div><div style=\"margin:8px 0\">'+c.reason+'</div><div class=\"muted\">≥70%: '+c.elevated_min+' min · ≥80%: '+c.high_min+' min · ≥90%: '+c.critical_min+' min · Energie bereit: '+c.flex_ready+' ('+c.flex_min+' min) · Gruppe 1: '+c.dry1+' · Gruppe 2: '+c.dry2+'</div></div>':'';document.getElementById('outside').innerHTML=d.outdoor.absolute_humidity!==null?'<div class="card" style="margin-bottom:18px"><div class="floor">Außenluft · Terrasse</div><div class="name">'+d.outdoor.temperature+'°C · '+d.outdoor.humidity+'%</div><div>Taupunkt '+d.outdoor.dew_point+'°C · abs. Feuchte '+d.outdoor.absolute_humidity+' g/m³</div></div>':'';function card(r){let v=r.ventilation||'UNBEKANNT';let vt=v==='SEHR_GUT'?'Sehr gute Lüftungsbedingungen':(v==='LUEFTEN'?'Lüften empfohlen':(v==='MOEGLICH'?'Lüften möglich':'Fenster eher geschlossen'));return '<div class="card"><div class="floor">'+r.floor+'</div><div class="name">'+r.name+'</div><div class="vals"><div><span class="big">'+r.temperature+'°C</span><div class="muted">Raum</div></div><div><span class="big">'+r.humidity+'%</span><div class="muted">rF</div></div></div><div>Taupunkt '+r.dew_point+'°C · abs. Feuchte '+r.absolute_humidity+' g/m³</div>'+(r.surface_humidity!==undefined?'<div>kritische Oberfläche: '+r.wall_temperature+'°C / '+r.surface_humidity+'%</div>':'')+'<p><span class="badge '+r.risk+'">'+r.risk+'</span> <span class="muted">'+r.method+'</span></p><div><b>'+vt+'</b> <span class="muted">Δ '+(r.humidity_delta!==undefined?r.humidity_delta:'?')+' g/m³</span></div><div class="muted">'+(r.ventilation_reason||'')+'</div></div>';}document.getElementById('egtitle').innerHTML='<h2>Erdgeschoss</h2>';document.getElementById('ktitle').innerHTML='<h2>Keller</h2>';document.getElementById('eg').innerHTML=d.rooms.filter(r=>r.floor==='EG').map(card).join('');document.getElementById('kg').innerHTML=d.rooms.filter(r=>r.floor==='Keller').map(card).join('');}load();setInterval(load,30000);</script></body></html>'''
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
