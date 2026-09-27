@@ -53,7 +53,13 @@ def collect_rooms():
             rh=num(cfg["humidity"]) if cfg.get("humidity") else None
             if t is None or rh is None: continue
             td=dew(t,rh); ah=abs_humidity(t,rh)
-            row={"floor":floor_name,"key":key,"name":ROOM_NAMES.get(key,key),"temperature":round(t,1),"humidity":round(rh,1),"dew_point":round(td,1),"absolute_humidity":round(ah,1),"method":"Raumklima","risk":room_risk(rh)}\n            if outdoor_ah is not None:\n                delta=ah-outdoor_ah\n                if delta>=2.0: vent="LUEFTEN"\n                elif delta>=0.8: vent="MOEGLICH"\n                else: vent="NICHT_SINNVOLL"\n                row.update({"ventilation":vent,"humidity_delta":round(delta,1)})
+            row={"floor":floor_name,"key":key,"name":ROOM_NAMES.get(key,key),"temperature":round(t,1),"humidity":round(rh,1),"dew_point":round(td,1),"absolute_humidity":round(ah,1),"method":"Raumklima","risk":room_risk(rh)}
+            if outdoor_ah is not None:
+                delta=ah-outdoor_ah
+                if delta>=2.0: vent="LUEFTEN"
+                elif delta>=0.8: vent="MOEGLICH"
+                else: vent="NICHT_SINNVOLL"
+                row.update({"ventilation":vent,"humidity_delta":round(delta,1)})
             if key=="bedroom" and floor_key=="ground_floor":
                 vals=[]
                 for k in ("north_wall_corner","north_wall_center"):
@@ -68,10 +74,14 @@ def collect_rooms():
     return sorted(out,key=lambda x:(-order.get(x["risk"],0),x["floor"],x["name"]))
 
 def loop():
-    print("INS MyHome Control 0.3.0 starting | mode=SHADOW | gui=8099",flush=True)
+    print("INS MyHome Control 0.3.1 starting | mode=SHADOW | gui=8099",flush=True)
     while True:
         try:
-            ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]\n            ot=num(ocfg["temperature"]); orh=num(ocfg["humidity"])\n            oah=abs_humidity(ot,orh) if ot is not None and orh is not None else None\n            otd=dew(ot,orh) if ot is not None and orh is not None else None\n            rooms=collect_rooms(oah)
+            ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
+            ot=num(ocfg["temperature"]); orh=num(ocfg["humidity"])
+            oah=abs_humidity(ot,orh) if ot is not None and orh is not None else None
+            otd=dew(ot,orh) if ot is not None and orh is not None else None
+            rooms=collect_rooms(oah)
             grid=num(INVENTORY_DATA["areas"]["energy"]["grid_power"])
             ac=num(INVENTORY_DATA["areas"]["energy"]["ac_thor_power"])
             export=max(0,-grid) if grid is not None else 0
