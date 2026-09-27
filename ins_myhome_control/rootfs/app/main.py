@@ -45,7 +45,7 @@ def elapsed(key,active,now):
 with open(INVENTORY,encoding="utf-8") as f: INVENTORY_DATA=json.load(f)
 ROOM_NAMES={"kitchen":"Küche","wc":"WC","vestibule":"Windfang","living_room":"Wohnzimmer","guest_room":"Gästezimmer","bedroom":"Schlafzimmer","child_room":"Kinderzimmer","bathroom":"Badezimmer","storage":"Lagerraum","garage":"Garage","workshop":"Werkstatt","technical_room":"Technikraum","office":"Büro","hobby_room":"Hobbyraum","wood_boiler_room":"Holzkesselraum","pellet_room":"Pelletraum","boiler_room":"Heizraum"}
 
-def collect_rooms():
+def collect_rooms(outdoor_ah=None):
     out=[]
     for floor_key,floor_name in (("ground_floor","EG"),("basement","Keller")):
         for key,cfg in INVENTORY_DATA["areas"].get(floor_key,{}).items():
@@ -74,7 +74,7 @@ def collect_rooms():
     return sorted(out,key=lambda x:(-order.get(x["risk"],0),x["floor"],x["name"]))
 
 def loop():
-    print("INS MyHome Control 0.3.1 starting | mode=SHADOW | gui=8099",flush=True)
+    print("INS MyHome Control 0.3.2 starting | mode=SHADOW | gui=8099",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
