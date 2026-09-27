@@ -2,7 +2,8 @@ import json, math, os, time, threading, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SUPERVISOR="http://supervisor/core/api"
-INVENTORY="/app/house_inventory.json"\nSTATE_FILE="/data/state.json"
+INVENTORY="/app/house_inventory.json"
+STATE_FILE="/data/state.json"
 LATEST={"updated":None,"rooms":[],"energy":{},"bedroom_control":{},"outdoor":{}}
 TIMERS={}
 FLEX_READY=False
@@ -97,7 +98,7 @@ def collect_rooms(outdoor_ah=None):
     return sorted(out,key=lambda x:(-order.get(x["risk"],0),x["floor"],x["name"]))
 
 def loop():
-    print("INS MyHome Control 0.3.4 starting | mode=SHADOW | gui=8099",flush=True)
+    print("INS MyHome Control 0.3.5 starting | mode=SHADOW | gui=8099",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
