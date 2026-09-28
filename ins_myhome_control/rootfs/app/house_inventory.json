@@ -56,7 +56,9 @@
         "north_wall_corner": "sensor.schlafzimmer_shellypm_nordwand_schlafzimmer_temperatur",
         "north_wall_center": "sensor.schlafzimmer_shellypm_nordwand_schlafzimmer_temperatur_2",
         "mold_dry_1": "switch.infrarot_schlafzimmer_2",
+        "mold_dry_1_power": "sensor.infrarot_schlafzimmer_2_leistung",
         "mold_dry_2": "switch.schlafzimmer_schimmeldry_schlafzimmer",
+        "mold_dry_2_power": "sensor.schlafzimmer_schimmeldry_schlafzimmer_leistung",
         "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_0000000e_smoke_status"
       },
       "child_room": {
