@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+- Remove obsolete shadow actuator log lines in active mode
+- Keep active actuator power feedback and bedroom protection runtime visible
+
 ## 0.5.0
 - Activate bedroom mould-dry switching through Home Assistant
 - Verify both Shelly actuator states with measured power feedback
