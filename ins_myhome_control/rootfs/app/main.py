@@ -9,6 +9,10 @@ TIMERS={}
 FLEX_READY=False
 VIRTUAL_DRY1=False
 VIRTUAL_DRY1_SINCE=None
+ACTUATOR_VERIFY_DELAY=15
+ACTUATOR_MIN_ON_POWER_W=10.0
+ACTUATOR_MAX_OFF_POWER_W=3.0
+ACTUATOR_COMMAND_TS={}
 
 def token(): return os.environ.get("SUPERVISOR_TOKEN","")
 def ha_state(eid):
@@ -17,6 +21,29 @@ def ha_state(eid):
 def num(eid):
     try: return float(ha_state(eid)["state"])
     except Exception: return None
+def ha_service(domain,service,entity_id):
+    data=json.dumps({"entity_id":entity_id}).encode()
+    req=urllib.request.Request(f"{SUPERVISOR}/services/{domain}/{service}",data=data,method="POST",headers={"Authorization":f"Bearer {token()}","Content-Type":"application/json"})
+    with urllib.request.urlopen(req,timeout=8) as r: return r.status
+def command_switch(entity_id,on):
+    wanted="on" if on else "off"
+    if text_state(entity_id)==wanted: return False
+    try:
+        ha_service("switch","turn_on" if on else "turn_off",entity_id)
+        ACTUATOR_COMMAND_TS[entity_id]=time.time()
+        print(f"actuator command | entity={entity_id} requested={wanted} result=SENT",flush=True)
+        return True
+    except Exception as e:
+        print(f"actuator command | entity={entity_id} requested={wanted} result=ERROR error={type(e).__name__}:{e}",flush=True)
+        return False
+def actuator_feedback(switch_entity,power_entity,wanted_on):
+    relay=text_state(switch_entity); power=num(power_entity)
+    settling=switch_entity in ACTUATOR_COMMAND_TS and time.time()-ACTUATOR_COMMAND_TS[switch_entity]<ACTUATOR_VERIFY_DELAY
+    if settling: status="SETTLING"
+    elif power is None: status="POWER_UNAVAILABLE"
+    elif wanted_on: status="CONFIRMED" if relay=="on" and power>=ACTUATOR_MIN_ON_POWER_W else "FEEDBACK_ERROR"
+    else: status="CONFIRMED" if relay=="off" and power<=ACTUATOR_MAX_OFF_POWER_W else "FEEDBACK_ERROR"
+    return {"relay":relay,"power_w":round(power,1) if power is not None else None,"feedback":status}
 def dew(t,rh):
     a,b=17.62,243.12; g=(a*t/(b+t))+math.log(rh/100.0); return b*g/(a-g)
 def abs_humidity(t,rh):
