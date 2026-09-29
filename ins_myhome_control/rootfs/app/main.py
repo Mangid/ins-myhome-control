@@ -175,7 +175,7 @@ def collect_rooms(outdoor_ah=None):
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.6.1 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.7.0 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
@@ -187,6 +187,16 @@ def loop():
             print("futus heizraum | connected=%s fresh=%s t3=%s t4=%s t5=%s t6=%s error=%s" % (futus.get("connected"),futus.get("fresh"),futus.get("t3"),futus.get("t4"),futus.get("t5"),futus.get("t6"),futus.get("error")),flush=True)
             print("futus technikraum | connected=%s fresh=%s t3=%s t4=%s t5=%s t6=%s error=%s" % (futus_technik.get("connected"),futus_technik.get("fresh"),futus_technik.get("t3"),futus_technik.get("t4"),futus_technik.get("t5"),futus_technik.get("t6"),futus_technik.get("error")),flush=True)
             rooms=collect_rooms(oah)
+            workshop=next((r for r in rooms if r["key"]=="workshop" and r["floor"]=="Keller"),None)
+            if futus_technik.get("fresh") and futus_technik.get("t3") is not None and workshop:
+                tech_t=futus_technik["t3"]; workshop_t=workshop["temperature"]; delta=round(tech_t-workshop_t,1)
+                fan_on=text_state(INVENTORY_DATA["areas"]["basement"]["technical_room"]["fan"])=="on"
+                on_for=elapsed("techfan_on_condition",tech_t>=22.0 and delta>=3.0,time.monotonic())
+                off_for=elapsed("techfan_off_condition",tech_t<=20.0 or delta<=1.0,time.monotonic())
+                rec=("EIN" if on_for>=300 else "AUS") if not fan_on else ("AUS" if off_for>=600 else "EIN")
+                print("technikraum fan shadow | recommendation=%s actual=%s tech=%.1fC workshop=%.1fC delta=%.1fK on_for=%dm off_for=%dm" % (rec,"EIN" if fan_on else "AUS",tech_t,workshop_t,delta,on_for//60,off_for//60),flush=True)
+            else:
+                print("technikraum fan shadow | recommendation=HOLD | data not fresh",flush=True)
             grid=num(INVENTORY_DATA["areas"]["energy"]["grid_power"])
             ac=num(INVENTORY_DATA["areas"]["energy"]["ac_thor_power"])
             export=max(0,-grid) if grid is not None else 0
