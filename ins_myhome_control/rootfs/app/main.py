@@ -175,7 +175,7 @@ def collect_rooms(outdoor_ah=None):
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.9.0 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.9.1 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
@@ -197,8 +197,12 @@ def loop():
                 run_for=elapsed("techfan_runtime",fan_on,time.monotonic())
                 idle_for=elapsed("techfan_idle",not fan_on,time.monotonic())
                 rec=("EIN" if idle_for>=600 and on_for>=300 else "AUS") if not fan_on else ("AUS" if run_for>=1200 and off_for>=600 else "EIN")
-                command_switch(fan_entity,rec=="EIN")
-                print("technikraum fan active | recommendation=%s actual=%s tech=%.1fC workshop=%.1fC delta=%.1fK on_for=%dm off_for=%dm" % (rec,"EIN" if fan_on else "AUS",tech_t,workshop_t,delta,on_for//60,off_for//60),flush=True)
+                reason=("OVERTEMP" if tech_t>=28.0 else ("DELTA_READY" if rec=="EIN" and not fan_on else ("DELTA_RECOVERED" if rec=="AUS" and fan_on else "HOLD_HYSTERESIS")))
+                changed=command_switch(fan_entity,rec=="EIN")
+                if changed: time.sleep(1)
+                actual=text_state(fan_entity)
+                if changed: print("technikraum fan switch | requested=%s actual=%s reason=%s tech=%.1fC workshop=%.1fC delta=%.1fK run=%dm idle=%dm" % (rec,actual,reason,tech_t,workshop_t,delta,run_for//60,idle_for//60),flush=True)
+                print("technikraum fan active | recommendation=%s actual=%s tech=%.1fC workshop=%.1fC delta=%.1fK run=%dm idle=%dm on_for=%dm off_for=%dm reason=%s" % (rec,actual,tech_t,workshop_t,delta,run_for//60,idle_for//60,on_for//60,off_for//60,reason),flush=True)
             else:
                 print("technikraum fan active | recommendation=HOLD | data not fresh | NO SWITCHING",flush=True)
             grid=num(INVENTORY_DATA["areas"]["energy"]["grid_power"])
