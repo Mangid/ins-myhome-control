@@ -1,10 +1,10 @@
-import json, math, os, time, threading, urllib.request
+import json, math, os, time, threading, urllib.request, socket, struct
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SUPERVISOR="http://supervisor/core/api"
 INVENTORY="/app/house_inventory.json"
 STATE_FILE="/config/ins_myhome_control_state.json"
-LATEST={"updated":None,"rooms":[],"energy":{},"bedroom_control":{},"outdoor":{}}
+LATEST={"updated":None,"rooms":[],"energy":{},"bedroom_control":{},"outdoor":{},"futus":{}}
 TIMERS={}
 FLEX_READY=False
 VIRTUAL_DRY1=False
