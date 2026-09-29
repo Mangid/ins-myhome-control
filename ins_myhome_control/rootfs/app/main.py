@@ -175,7 +175,7 @@ def collect_rooms(outdoor_ah=None):
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.7.0 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.8.0 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
@@ -190,13 +190,17 @@ def loop():
             workshop=next((r for r in rooms if r["key"]=="workshop" and r["floor"]=="Keller"),None)
             if futus_technik.get("fresh") and futus_technik.get("t3") is not None and workshop:
                 tech_t=futus_technik["t3"]; workshop_t=workshop["temperature"]; delta=round(tech_t-workshop_t,1)
-                fan_on=text_state(INVENTORY_DATA["areas"]["basement"]["technical_room"]["fan"])=="on"
-                on_for=elapsed("techfan_on_condition",tech_t>=22.0 and delta>=3.0,time.monotonic())
+                fan_entity=INVENTORY_DATA["areas"]["basement"]["technical_room"]["fan"]
+                fan_on=text_state(fan_entity)=="on"
+                on_for=elapsed("techfan_on_condition",(tech_t>=22.0 and delta>=3.0) or tech_t>=28.0,time.monotonic())
                 off_for=elapsed("techfan_off_condition",tech_t<=20.0 or delta<=1.0,time.monotonic())
-                rec=("EIN" if on_for>=300 else "AUS") if not fan_on else ("AUS" if off_for>=600 else "EIN")
-                print("technikraum fan shadow | recommendation=%s actual=%s tech=%.1fC workshop=%.1fC delta=%.1fK on_for=%dm off_for=%dm" % (rec,"EIN" if fan_on else "AUS",tech_t,workshop_t,delta,on_for//60,off_for//60),flush=True)
+                run_for=elapsed("techfan_runtime",fan_on,time.monotonic())
+                idle_for=elapsed("techfan_idle",not fan_on,time.monotonic())
+                rec=("EIN" if idle_for>=600 and on_for>=300 else "AUS") if not fan_on else ("AUS" if run_for>=1200 and off_for>=600 else "EIN")
+                command_switch(fan_entity,rec=="EIN")
+                print("technikraum fan active | recommendation=%s actual=%s tech=%.1fC workshop=%.1fC delta=%.1fK on_for=%dm off_for=%dm" % (rec,"EIN" if fan_on else "AUS",tech_t,workshop_t,delta,on_for//60,off_for//60),flush=True)
             else:
-                print("technikraum fan shadow | recommendation=HOLD | data not fresh",flush=True)
+                print("technikraum fan active | recommendation=HOLD | data not fresh | NO SWITCHING",flush=True)
             grid=num(INVENTORY_DATA["areas"]["energy"]["grid_power"])
             ac=num(INVENTORY_DATA["areas"]["energy"]["ac_thor_power"])
             export=max(0,-grid) if grid is not None else 0
