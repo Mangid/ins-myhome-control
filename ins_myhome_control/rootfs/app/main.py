@@ -44,6 +44,38 @@ def actuator_feedback(switch_entity,power_entity,wanted_on):
     elif wanted_on: status="CONFIRMED" if relay=="on" and power>=ACTUATOR_MIN_ON_POWER_W else "FEEDBACK_ERROR"
     else: status="CONFIRMED" if relay=="off" and power<=ACTUATOR_MAX_OFF_POWER_W else "FEEDBACK_ERROR"
     return {"relay":relay,"power_w":round(power,1) if power is not None else None,"feedback":status}
+FUTUS_HOST="10.0.0.86"
+FUTUS_PORT=502
+FUTUS_UNIT_ID=20
+FUTUS_REGISTER_START=103
+FUTUS_REGISTER_COUNT=4
+FUTUS_TIMEOUT=5.0
+FUTUS_TX=0
+
+def futus_read():
+    global FUTUS_TX
+    FUTUS_TX=1 if FUTUS_TX>=65535 else FUTUS_TX+1
+    pdu=struct.pack(">BHH",3,FUTUS_REGISTER_START,FUTUS_REGISTER_COUNT)
+    req=struct.pack(">HHHB",FUTUS_TX,0,len(pdu)+1,FUTUS_UNIT_ID)+pdu
+    try:
+        with socket.create_connection((FUTUS_HOST,FUTUS_PORT),timeout=FUTUS_TIMEOUT) as s:
+            s.settimeout(FUTUS_TIMEOUT); s.sendall(req)
+            header=s.recv(7)
+            if len(header)!=7: raise ValueError("short Modbus header")
+            tx,proto,length,unit=struct.unpack(">HHHB",header)
+            if tx!=FUTUS_TX or proto!=0 or unit!=FUTUS_UNIT_ID: raise ValueError("invalid Modbus header")
+            body=b""
+            while len(body)<length-1:
+                part=s.recv(length-1-len(body))
+                if not part: raise ValueError("short Modbus response")
+                body+=part
+            if body[0]!=3 or body[1]!=8: raise ValueError("invalid Modbus payload")
+            regs=struct.unpack(">4H",body[2:10])
+            def t(v): return round((v-65536 if v>=32768 else v)/10.0,1)
+            return {"connected":True,"fresh":True,"t3":t(regs[0]),"t4":t(regs[1]),"t5":t(regs[2]),"t6":t(regs[3]),"last_success":time.time()}
+    except Exception as e:
+        return {"connected":False,"fresh":False,"t3":None,"t4":None,"t5":None,"t6":None,"error":f"{type(e).__name__}: {e}"}
+
 def dew(t,rh):
     a,b=17.62,243.12; g=(a*t/(b+t))+math.log(rh/100.0); return b*g/(a-g)
 def abs_humidity(t,rh):
