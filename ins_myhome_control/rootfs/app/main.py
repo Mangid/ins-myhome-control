@@ -175,7 +175,7 @@ def collect_rooms(outdoor_ah=None):
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.8.0 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.9.0 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
@@ -206,6 +206,19 @@ def loop():
             export=max(0,-grid) if grid is not None else 0
             acp=max(0,ac) if ac is not None else 0
             flexible=export+acp
+            for room_key in ("workshop","storage"):
+                row=next((r for r in rooms if r["key"]==room_key and r["floor"]=="Keller"),None)
+                cfg=INVENTORY_DATA["areas"]["basement"][room_key]
+                if row:
+                    sw=cfg.get("dehumidifier_switch"); pw=cfg.get("dehumidifier_power"); relay=text_state(sw); watts=num(pw)
+                    need_for=elapsed("dehum_need_"+room_key,row["humidity"]>=65.0,time.monotonic())
+                    dry_for=elapsed("dehum_dry_"+room_key,row["humidity"]<=60.0,time.monotonic())
+                    required=max(350.0,watts or 0.0); energy_ok=flexible>=required
+                    wanted=(need_for>=600 and energy_ok) or (relay=="on" and row["humidity"]>60.0 and dry_for<1200)
+                    command_switch(sw,wanted)
+                    zero_for=elapsed("dehum_zero_"+room_key,wanted and relay=="on" and watts is not None and watts<5.0,time.monotonic())
+                    status="RUNNING" if wanted and watts is not None and watts>=5.0 else ("TANK_OR_FAULT" if zero_for>=600 else ("WAIT_POWER" if wanted else "OFF"))
+                    print("humidity manager | room=%s rh=%.1f wanted=%s relay=%s power=%sW status=%s flexible=%.0fW" % (room_key,row["humidity"],str(wanted).lower(),relay,watts,status,flexible),flush=True)
             bed=next((r for r in rooms if r["key"]=="bedroom" and r["floor"]=="EG"),None)
             control={}
             if bed and bed.get("surface_humidity") is not None:
