@@ -1,5 +1,5 @@
 name: "INS MyHome Control"
-version: "0.7.0"
+version: "0.8.0"
 slug: "ins_myhome_control"
 description: "Private Home Assistant control center for climate, energy and home automation"
 url: "https://github.com/Mangid/ins-myhome-control"
