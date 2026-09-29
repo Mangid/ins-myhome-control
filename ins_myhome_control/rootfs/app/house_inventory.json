@@ -82,8 +82,8 @@
         "humidity": "sensor.lagerraum_th_lagerraum_luftfeuchtigkeit",
         "motion": "binary_sensor.lagerraum_bewegungsmelder_lagerraum_bewegung",
         "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_00000007_smoke_status",
-        "dehumidifier_switch_candidate": "switch.shellyplug_heizung",
-        "note": "dehumidifier mapping to be verified"
+        "dehumidifier_switch": "switch.shellyplug_heizung",
+        "dehumidifier_power": "sensor.shellyplug_heizung_leistung"
       },
       "bathroom": {
         "temperature": "sensor.badezimmer_th_bad_temperatur",
@@ -106,6 +106,8 @@
         "humidity": "sensor.werkstatt_th_werkstatt_luftfeuchtigkeit",
         "motion": "binary_sensor.werkstatt_bewegungsmelder_werkstatt_bewegung",
         "smoke": "binary_sensor.smoke_alarm_sbs5015ba8409_00000004_smoke_status",
+        "dehumidifier_switch": "switch.shellyplug_serverrack",
+        "dehumidifier_power": "sensor.shellyplug_serverrack_leistung",
         "server_cabinet_power": "sensor.werkstatt_entfeuchter_werkstatt_leistung",
         "server_cabinet_energy": "sensor.werkstatt_entfeuchter_werkstatt_energie",
         "washing_machine_power": "sensor.werkstatt_waschmaschine_leistung",
