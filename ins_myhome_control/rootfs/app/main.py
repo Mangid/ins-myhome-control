@@ -52,18 +52,18 @@ FUTUS_REGISTER_COUNT=4
 FUTUS_TIMEOUT=5.0
 FUTUS_TX=0
 
-def futus_read():
+def futus_read(host=FUTUS_HOST,unit_id=FUTUS_UNIT_ID):
     global FUTUS_TX
     FUTUS_TX=1 if FUTUS_TX>=65535 else FUTUS_TX+1
     pdu=struct.pack(">BHH",3,FUTUS_REGISTER_START,FUTUS_REGISTER_COUNT)
-    req=struct.pack(">HHHB",FUTUS_TX,0,len(pdu)+1,FUTUS_UNIT_ID)+pdu
+    req=struct.pack(">HHHB",FUTUS_TX,0,len(pdu)+1,unit_id)+pdu
     try:
-        with socket.create_connection((FUTUS_HOST,FUTUS_PORT),timeout=FUTUS_TIMEOUT) as s:
+        with socket.create_connection((host,FUTUS_PORT),timeout=FUTUS_TIMEOUT) as s:
             s.settimeout(FUTUS_TIMEOUT); s.sendall(req)
             header=s.recv(7)
             if len(header)!=7: raise ValueError("short Modbus header")
             tx,proto,length,unit=struct.unpack(">HHHB",header)
-            if tx!=FUTUS_TX or proto!=0 or unit!=FUTUS_UNIT_ID: raise ValueError("invalid Modbus header")
+            if tx!=FUTUS_TX or proto!=0 or unit!=unit_id: raise ValueError("invalid Modbus header")
             body=b""
             while len(body)<length-1:
                 part=s.recv(length-1-len(body))
