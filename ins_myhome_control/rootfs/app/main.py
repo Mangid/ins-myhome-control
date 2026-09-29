@@ -175,15 +175,17 @@ def collect_rooms(outdoor_ah=None):
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.6.0 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.6.1 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
             ot=num(ocfg["temperature"]); orh=num(ocfg["humidity"])
             oah=abs_humidity(ot,orh) if ot is not None and orh is not None else None
             otd=dew(ot,orh) if ot is not None and orh is not None else None
-            futus=futus_read()
-            print("futus | connected=%s fresh=%s t3=%s t4=%s t5=%s t6=%s error=%s" % (futus.get("connected"),futus.get("fresh"),futus.get("t3"),futus.get("t4"),futus.get("t5"),futus.get("t6"),futus.get("error")),flush=True)
+            futus=futus_read("10.0.0.86",20)
+            futus_technik=futus_read("10.0.0.80",10)
+            print("futus heizraum | connected=%s fresh=%s t3=%s t4=%s t5=%s t6=%s error=%s" % (futus.get("connected"),futus.get("fresh"),futus.get("t3"),futus.get("t4"),futus.get("t5"),futus.get("t6"),futus.get("error")),flush=True)
+            print("futus technikraum | connected=%s fresh=%s t3=%s t4=%s t5=%s t6=%s error=%s" % (futus_technik.get("connected"),futus_technik.get("fresh"),futus_technik.get("t3"),futus_technik.get("t4"),futus_technik.get("t5"),futus_technik.get("t6"),futus_technik.get("error")),flush=True)
             rooms=collect_rooms(oah)
             grid=num(INVENTORY_DATA["areas"]["energy"]["grid_power"])
             ac=num(INVENTORY_DATA["areas"]["energy"]["ac_thor_power"])
