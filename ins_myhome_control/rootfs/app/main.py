@@ -175,7 +175,7 @@ def collect_rooms(outdoor_ah=None):
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.9.3 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.9.4 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
@@ -206,10 +206,12 @@ def loop():
             else:
                 print("technikraum fan active | recommendation=HOLD | data not fresh | NO SWITCHING",flush=True)
             grid=num(INVENTORY_DATA["areas"]["energy"]["grid_power"])
+            pv=num(INVENTORY_DATA["areas"]["energy"]["pv_power"])
             ac=num(INVENTORY_DATA["areas"]["energy"]["ac_thor_power"])
             export=max(0,-grid) if grid is not None else 0
             acp=max(0,ac) if ac is not None else 0
             flexible=export+acp
+            pvp=max(0,pv) if pv is not None else 0
             for room_key in ("workshop","storage"):
                 row=next((r for r in rooms if r["key"]==room_key and r["floor"]=="Keller"),None)
                 cfg=INVENTORY_DATA["areas"]["basement"][room_key]
@@ -242,11 +244,11 @@ def loop():
                 # 60 min bei weiterhin >=80 % Oberflächenfeuchte nicht ausreicht.
                 # Kritische Feuchte >=90 % aktiviert weiterhin sofort beide Gruppen.
                 cascade2=VIRTUAL_DRY1 and virtual_runtime>=60 and worst>=80
-                pv_both_ready=worst>=70 and elev>=1200 and FLEX_READY and flexible>=250
+                pv_both_ready=worst>=70 and elev>=1200 and ((FLEX_READY and flexible>=250) or pvp>=500)
                 if worst>=90 and crit>=300:
                     rec="BEIDE"; reason=f"Kritisch {worst:.1f}% seit {crit//60} min"
                 elif pv_both_ready:
-                    rec="BEIDE"; reason=f"Erhoeht {worst:.1f}% seit {elev//60} min - genug flexibler PV-Pool fuer beide Gruppen ({flexible:.0f} W)"
+                    rec="BEIDE"; reason=f"Erhoeht {worst:.1f}% seit {elev//60} min - Energie fuer beide Gruppen (PV {pvp:.0f} W, flexibel {flexible:.0f} W)"
                 elif cascade2:
                     rec="BEIDE"; reason=f"Kaskade: Gruppe 1 seit {virtual_runtime} min aktiv, Oberfläche weiter bei {worst:.1f}%"
                 elif worst>=80 and high>=1200:
@@ -280,7 +282,7 @@ def loop():
                 print("actuator active | group1=%s power=%sW feedback=%s | group2=%s power=%sW feedback=%s" % (fb1["relay"],fb1["power_w"],fb1["feedback"],fb2["relay"],fb2["power_w"],fb2["feedback"]),flush=True)
                 control={"recommendation":rec,"reason":reason,"elevated_min":elev//60,"high_min":high//60,"critical_min":crit//60,"flex_ready":FLEX_READY,"flex_min":flex_for//60,"dry1":text_state(bc["mold_dry_1"]),"dry2":text_state(bc["mold_dry_2"]),"actuator_action":("EINSCHALTEN_BEIDE" if rec=="BEIDE" else ("EINSCHALTEN_GRUPPE_1" if rec=="GRUPPE_1" else "AUS")),"minimum_runtime_min":120,"off_threshold_surface_rh":72,"anti_cycle":True,"virtual_dry1":VIRTUAL_DRY1,"virtual_runtime_min":virtual_runtime,"below72_min":below72//60}
                 print(f"bedroom mold | recommendation={rec} | elevated_for={elev//60}m flex_ready={str(FLEX_READY).lower()} | runtime={virtual_runtime}m below72={below72//60}m | reason={reason}",flush=True)
-            LATEST.update({"updated":time.strftime("%Y-%m-%d %H:%M:%S"),"rooms":rooms,"energy":{"grid_export":round(export),"ac_thor":round(acp),"flexible":round(flexible)},"bedroom_control":control,"outdoor":{"temperature":round(ot,1) if ot is not None else None,"humidity":round(orh,1) if orh is not None else None,"dew_point":round(otd,1) if otd is not None else None,"absolute_humidity":round(oah,1) if oah is not None else None}})
+            LATEST.update({"updated":time.strftime("%Y-%m-%d %H:%M:%S"),"rooms":rooms,"energy":{"pv":round(pvp),"grid_export":round(export),"ac_thor":round(acp),"flexible":round(flexible)},"bedroom_control":control,"outdoor":{"temperature":round(ot,1) if ot is not None else None,"humidity":round(orh,1) if orh is not None else None,"dew_point":round(otd,1) if otd is not None else None,"absolute_humidity":round(oah,1) if oah is not None else None}})
             if bed: print(f'climate overview | rooms={len(rooms)} bedroom_risk={bed["risk"]} method={bed["method"]}',flush=True)
         except Exception as e: print(f"ERROR | {type(e).__name__}: {e}",flush=True)
         time.sleep(30)
