@@ -175,7 +175,7 @@ def collect_rooms(outdoor_ah=None):
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.9.1 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.9.2 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
@@ -235,8 +235,17 @@ def loop():
                 flex_for=elapsed("flex",flexible>=300,now)
                 if FLEX_READY and flexible<100: FLEX_READY=False
                 elif (not FLEX_READY) and flex_for>=300: FLEX_READY=True
+                global VIRTUAL_DRY1,VIRTUAL_DRY1_SINCE
+                ts=time.time()
+                virtual_runtime=int((ts-VIRTUAL_DRY1_SINCE)/60) if VIRTUAL_DRY1 and VIRTUAL_DRY1_SINCE else 0
+                # Kaskade: Gruppe 2 unterstützt Gruppe 1, wenn deren Wirkung nach
+                # 60 min bei weiterhin >=80 % Oberflächenfeuchte nicht ausreicht.
+                # Kritische Feuchte >=90 % aktiviert weiterhin sofort beide Gruppen.
+                cascade2=VIRTUAL_DRY1 and virtual_runtime>=60 and worst>=80
                 if worst>=90 and crit>=300:
                     rec="BEIDE"; reason=f"Kritisch {worst:.1f}% seit {crit//60} min"
+                elif cascade2:
+                    rec="BEIDE"; reason=f"Kaskade: Gruppe 1 seit {virtual_runtime} min aktiv, Oberfläche weiter bei {worst:.1f}%"
                 elif worst>=80 and high>=1200:
                     rec="GRUPPE_1"; reason=f"Hoch {worst:.1f}% seit {high//60} min - Schutzbedarf unabhaengig von PV"
                 elif worst>=70 and elev>=10800:
@@ -246,13 +255,13 @@ def loop():
                 else:
                     rec="AUS"
                     reason=(f"{worst:.1f}% seit {elev//60} min erhoeht; Freigabe ab 20 min + Energie" if worst>=70 else f"{worst:.1f}% unkritisch")
-                global VIRTUAL_DRY1,VIRTUAL_DRY1_SINCE
-                ts=time.time()
                 if rec in ("GRUPPE_1","BEIDE") and not VIRTUAL_DRY1:
                     VIRTUAL_DRY1=True
                     VIRTUAL_DRY1_SINCE=ts
+                    virtual_runtime=0
                     save_persistent()
-                virtual_runtime=int((ts-VIRTUAL_DRY1_SINCE)/60) if VIRTUAL_DRY1 and VIRTUAL_DRY1_SINCE else 0
+                elif VIRTUAL_DRY1 and VIRTUAL_DRY1_SINCE:
+                    virtual_runtime=int((ts-VIRTUAL_DRY1_SINCE)/60)
                 below72=elapsed("bed_below72",worst<72,now)
                 if VIRTUAL_DRY1 and rec=="AUS" and virtual_runtime>=120 and below72>=1200:
                     VIRTUAL_DRY1=False
