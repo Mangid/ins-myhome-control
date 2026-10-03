@@ -164,6 +164,7 @@
     },
     "energy": {
       "grid_power": "sensor.em540_leistung",
+      "pv_power": "sensor.pv_gesamtleistung",
       "ac_thor_power": "sensor.my_pv_ac_thor_9s_leistung"
     }
   }
