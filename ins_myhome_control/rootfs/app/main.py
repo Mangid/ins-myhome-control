@@ -175,7 +175,7 @@ def collect_rooms(outdoor_ah=None):
 
 def loop():
     load_persistent()
-    print("INS MyHome Control 0.9.2 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
+    print("INS MyHome Control 0.9.3 starting | mode=ACTIVE | gui=8099 | state=/config",flush=True)
     while True:
         try:
             ocfg=INVENTORY_DATA["areas"]["outdoor"]["terrace"]
@@ -242,8 +242,11 @@ def loop():
                 # 60 min bei weiterhin >=80 % Oberflächenfeuchte nicht ausreicht.
                 # Kritische Feuchte >=90 % aktiviert weiterhin sofort beide Gruppen.
                 cascade2=VIRTUAL_DRY1 and virtual_runtime>=60 and worst>=80
+                pv_both_ready=worst>=70 and elev>=1200 and FLEX_READY and flexible>=250
                 if worst>=90 and crit>=300:
                     rec="BEIDE"; reason=f"Kritisch {worst:.1f}% seit {crit//60} min"
+                elif pv_both_ready:
+                    rec="BEIDE"; reason=f"Erhoeht {worst:.1f}% seit {elev//60} min - genug flexibler PV-Pool fuer beide Gruppen ({flexible:.0f} W)"
                 elif cascade2:
                     rec="BEIDE"; reason=f"Kaskade: Gruppe 1 seit {virtual_runtime} min aktiv, Oberfläche weiter bei {worst:.1f}%"
                 elif worst>=80 and high>=1200:
